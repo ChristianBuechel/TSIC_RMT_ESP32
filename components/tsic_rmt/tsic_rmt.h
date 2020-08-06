@@ -20,7 +20,9 @@ extern "C"
 #define RMT_RX_CHANNEL RMT_CHANNEL_0 //channel 0 
 
 // Pin configuration //////////////////////////////////////////////////////////////
-#define TSIC_PIN GPIO_NUM_35
+#define TSIC_PIN GPIO_NUM_23
+#define FAKE_PULSE GPIO_NUM_22
+
 
 
     typedef struct

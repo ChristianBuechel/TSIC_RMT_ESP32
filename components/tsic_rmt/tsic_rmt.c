@@ -3,6 +3,7 @@
 
 #define TAG "TSIC_RMT"
 
+static rmt_isr_handle_t s_rmt_driver_intr_handle;
 int tsic_initialized = -1;
 
 QueueHandle_t *tsic_queue;
@@ -77,16 +78,17 @@ static void IRAM_ATTR rmt_isr_handler(void *arg) //static ??
     evt.time = esp_timer_get_time();
     evt.result = TSIC_value;
     evt.n_data = n_data;
+    //evt.n_data = 0;
     xQueueSendFromISR(tsic_queue, &evt, &HPTaskAwoken);
-    if (HPTaskAwoken == pdTRUE)
-    { portYIELD_FROM_ISR(); } //not sure about this??
-
+ 
     RMT.conf_ch[RMT_RX_CHANNEL].conf1.mem_wr_rst = 1;
     RMT.conf_ch[RMT_RX_CHANNEL].conf1.mem_owner = RMT_MEM_OWNER_RX;
     RMT.conf_ch[RMT_RX_CHANNEL].conf1.rx_en = 1;
 
     //clear RMT interrupt status.
     RMT.int_clr.val = intr_st;
+    if (HPTaskAwoken == pdTRUE)
+    { portYIELD_FROM_ISR(); } //not sure about this??
     //CB probably do the whole decoding of the waveform in ISR and simply send an int over a semaphore
 }
 
@@ -102,13 +104,15 @@ QueueHandle_t *tsic_init()
     ESP_LOGI(TAG, "Queue created");
 
     // set pull-up 
+  
     gpio_config_t tsic;
+    tsic.intr_type = GPIO_INTR_DISABLE; 
     tsic.mode = GPIO_MODE_INPUT;
     tsic.pull_up_en = GPIO_PULLUP_ENABLE;
     tsic.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    tsic.pin_bit_mask = (1ULL << TSIC_PIN); //GPIO_SEL_35;
+    tsic.pin_bit_mask = (1ULL << TSIC_PIN); //
     gpio_config(&tsic);
-
+    
     //configure RMT for FAN (phase cut)
     rmt_config_t config;
     config.channel = RMT_RX_CHANNEL;
@@ -121,7 +125,7 @@ QueueHandle_t *tsic_init()
     config.rx_config.idle_threshold = 200; //CB here I would suggest 200us
     ESP_ERROR_CHECK(rmt_config(&config));
     rmt_set_rx_intr_en(config.channel,true);
-    rmt_isr_register(rmt_isr_handler, NULL, ESP_INTR_FLAG_LEVEL1, &rmt_isr_handler);
+    rmt_isr_register(rmt_isr_handler, NULL, ESP_INTR_FLAG_LEVEL1, &s_rmt_driver_intr_handle);
     rmt_rx_start(config.channel, 1);
     ESP_LOGI(TAG, "Installed RX RMT driver\n");
 

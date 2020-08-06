@@ -21,9 +21,47 @@ extern "C"
     void app_main();
 }
 
+
+static void gpio_test_signal(void *arg)
+{
+	ESP_LOGI(TAG, "initializing fake pulses...");
+	gpio_config_t gp;
+	gp.mode = GPIO_MODE_OUTPUT;
+    gp.pull_up_en = GPIO_PULLUP_ENABLE;
+    gp.pull_down_en = GPIO_PULLDOWN_DISABLE;
+
+	gp.pin_bit_mask = 1ULL << FAKE_PULSE;
+	gpio_config(&gp);
+
+	while (1)
+	{
+		//here the period of test signal is 10ms --> emulate ZC
+		gpio_set_level(FAKE_PULSE, 0); // Set low
+		ets_delay_us(60);
+		gpio_set_level(FAKE_PULSE, 1); 
+		ets_delay_us(70);
+		gpio_set_level(FAKE_PULSE, 0); 
+		ets_delay_us(80);
+		gpio_set_level(FAKE_PULSE, 1); 
+		ets_delay_us(90);
+		gpio_set_level(FAKE_PULSE, 0); 
+		ets_delay_us(80);
+		gpio_set_level(FAKE_PULSE, 1); 
+		ets_delay_us(70);
+		gpio_set_level(FAKE_PULSE, 0); 
+		ets_delay_us(60);
+		gpio_set_level(FAKE_PULSE, 1); // Set high
+		vTaskDelay(20);				// wait for about 200ms
+	}
+}
+
 void app_main(void)
 {
     //here we start
+
+    // start fake pulses 
+	xTaskCreate(gpio_test_signal, "gpio_test_signal", 4096, NULL, 5, NULL); //comment if you don't want to use capture module
+
     //setup tsic routines
     tsic_event_t tsicev;
     QueueHandle_t tsic_events = tsic_init(); //init with GPIOs would be nice
