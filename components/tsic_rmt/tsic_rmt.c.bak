@@ -128,7 +128,6 @@ QueueHandle_t *tsic_init()
     config.rx_config.idle_threshold = 200; //max pulse should be around 125 us (between bytes)
                                            //however setting this to 150 truncates the bytes
                                            //using 200us works
-										   //UPDATE: scoped it and the pulse between bytes is 164us!!!
     ESP_ERROR_CHECK(rmt_config(&config));
     rmt_set_rx_intr_en(config.channel, true);
     rmt_isr_register(rmt_isr_handler, NULL, ESP_INTR_FLAG_LEVEL1, &s_rmt_driver_intr_handle);
