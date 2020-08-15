@@ -5,9 +5,7 @@
 
 QueueHandle_t *bt_queue;
 
-
 int bt_initialized = -1;
-
 
 static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
 
@@ -16,8 +14,6 @@ static long data_num = 0;
 
 static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_AUTHENTICATE;
 static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
-
-
 
 static uint32_t millis()
 {
@@ -30,7 +26,7 @@ static void print_speed(void)
     float time_new_s = time_new.tv_sec + time_new.tv_usec / 1000000.0;
     float time_interval = time_new_s - time_old_s;
     float speed = data_num * 8 / time_interval / 1000.0;
-    ESP_LOGI(SPP_TAG, "speed(%fs ~ %fs): %f kbit/s" , time_old_s, time_new_s, speed);
+    ESP_LOGI(SPP_TAG, "speed(%fs ~ %fs): %f kbit/s", time_old_s, time_new_s, speed);
     data_num = 0;
     time_old.tv_sec = time_new.tv_sec;
     time_old.tv_usec = time_new.tv_usec;
@@ -41,12 +37,13 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
     char buf[1024];
     char spp_data[256];
 
-    switch (event) {
+    switch (event)
+    {
     case ESP_SPP_INIT_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_INIT_EVT");
         esp_bt_dev_set_device_name(EXAMPLE_DEVICE_NAME);
         esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-        esp_spp_start_srv(sec_mask,role_slave, 0, SPP_SERVER_NAME);
+        esp_spp_start_srv(sec_mask, role_slave, 0, SPP_SERVER_NAME);
         break;
     case ESP_SPP_DISCOVERY_COMP_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_DISCOVERY_COMP_EVT");
@@ -68,20 +65,40 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",
                  param->data_ind.len, param->data_ind.handle);
         //esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
-                if (param->data_ind.len < 1023) {
+        if (param->data_ind.len < 1023)
+        {
             snprintf(buf, (size_t)param->data_ind.len, (char *)param->data_ind.data);
             printf("%s\n", buf);
+
+            uint32_t pre = esp_get_free_heap_size(); 
+            char *myItem = malloc(strlen(buf) + 1);
+            uint32_t post = esp_get_free_heap_size(); 
+            ESP_LOGI(SPP_TAG, "Allocated %d bytes", strlen(buf) + 1);
+            strcpy(myItem, buf);
+            ESP_LOGI(SPP_TAG, "message copied");
+
+            ESP_LOGI(SPP_TAG, "Heap before %d after %d bytes (delta: %d)", pre, post, pre-post);
+
+            bt_event_t event = {
+                .time = millis(),
+                .message = myItem,
+            }; 
+
             sprintf(spp_data, "Received chars: %d\n", param->data_ind.len);
+
+            xQueueSendToBack(bt_queue, &event, portMAX_DELAY);
             esp_spp_write(param->write.handle, strlen(spp_data), (uint8_t *)spp_data);
         }
-        else {
-            esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
+        else
+        {
+            esp_log_buffer_hex("", param->data_ind.data, param->data_ind.len);
         }
 
 #else
         gettimeofday(&time_new, NULL);
         data_num += param->data_ind.len;
-        if (time_new.tv_sec - time_old.tv_sec >= 3) {
+        if (time_new.tv_sec - time_old.tv_sec >= 3)
+        {
             print_speed();
         }
 #endif
@@ -109,23 +126,32 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
 
 void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
-    switch (event) {
-    case ESP_BT_GAP_AUTH_CMPL_EVT:{
-        if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS) {
+    switch (event)
+    {
+    case ESP_BT_GAP_AUTH_CMPL_EVT:
+    {
+        if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS)
+        {
             ESP_LOGI(SPP_TAG, "authentication success: %s", param->auth_cmpl.device_name);
             esp_log_buffer_hex(SPP_TAG, param->auth_cmpl.bda, ESP_BD_ADDR_LEN);
-        } else {
+        }
+        else
+        {
             ESP_LOGE(SPP_TAG, "authentication failed, status:%d", param->auth_cmpl.stat);
         }
         break;
     }
-    case ESP_BT_GAP_PIN_REQ_EVT:{
+    case ESP_BT_GAP_PIN_REQ_EVT:
+    {
         ESP_LOGI(SPP_TAG, "ESP_BT_GAP_PIN_REQ_EVT min_16_digit:%d", param->pin_req.min_16_digit);
-        if (param->pin_req.min_16_digit) {
+        if (param->pin_req.min_16_digit)
+        {
             ESP_LOGI(SPP_TAG, "Input pin code: 0000 0000 0000 0000");
             esp_bt_pin_code_t pin_code = {0};
             esp_bt_gap_pin_reply(param->pin_req.bda, true, 16, pin_code);
-        } else {
+        }
+        else
+        {
             ESP_LOGI(SPP_TAG, "Input pin code: 1234");
             esp_bt_pin_code_t pin_code;
             pin_code[0] = '1';
@@ -150,13 +176,15 @@ void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         break;
 #endif
 
-    default: {
+    default:
+    {
         ESP_LOGI(SPP_TAG, "event: %d", event);
         break;
     }
     }
     return;
 }
+
 QueueHandle_t *bt_init()
 {
     if (bt_initialized != -1)

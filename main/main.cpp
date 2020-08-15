@@ -27,11 +27,22 @@ void app_main(void)
 
     //setup tsic module returns the handle for the queue
     tsic_event_t tsicev;
-    QueueHandle_t tsic_events = tsic_init(); 
-    QueueHandle_t bt_events = bt_init(); 
+    bt_event_t btev;
+    QueueHandle_t tsic_events = tsic_init();
+    QueueHandle_t bt_events = bt_init();
 
     while (1) //main loop
     {
+        if (xQueueReceive(bt_events, &btev, 0)) //do not wait
+        {
+            ESP_LOGI(TAG, "Recieved(ms)    : %d", btev.time);
+            ESP_LOGI(TAG, "Message         : %s", btev.message);
+            uint32_t pre = esp_get_free_heap_size(); 
+            free(btev.message);
+            uint32_t post = esp_get_free_heap_size(); 
+            ESP_LOGI(TAG, "Heap before %d after %d bytes (delta: %d)", pre, post, post-pre);
+
+        }
         if (xQueueReceive(tsic_events, &tsicev, 0)) //do not wait
         {
             /*
@@ -44,8 +55,7 @@ void app_main(void)
             ESP_LOGI(TAG, "\n");
             */
             //esp_spp_write(param->write.handle, strlen(spp_data), (uint8_t *)spp_data);
-
         }
-        vTaskDelay(10 / portTICK_RATE_MS); //wait 
+        vTaskDelay(10 / portTICK_RATE_MS); //wait
     }
 }
